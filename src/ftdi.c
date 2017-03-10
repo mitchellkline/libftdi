@@ -564,44 +564,18 @@ static unsigned int _ftdi_determine_max_packet_size(struct ftdi_context *ftdi, l
     return packet_size;
 }
 
-/**
-    Opens a ftdi device given by an usb_device.
-
-    \param ftdi pointer to ftdi_context
-    \param dev libusb usb_dev to use
-
-    \retval  0: all fine
-    \retval -3: unable to config device
-    \retval -4: unable to open device
-    \retval -5: unable to claim device
-    \retval -6: reset failed
-    \retval -7: set baudrate failed
-    \retval -8: ftdi context invalid
-    \retval -9: libusb_get_device_descriptor() failed
-    \retval -10: libusb_get_config_descriptor() failed
-    \retval -11: libusb_detach_kernel_driver() failed
-    \retval -12: libusb_get_configuration() failed
-*/
-int ftdi_usb_open_dev(struct ftdi_context *ftdi, libusb_device *dev)
-{
+static int ftdi_usb_open_dev_internal(struct ftdi_context *ftdi, libusb_device *dev) {
     struct libusb_device_descriptor desc;
     struct libusb_config_descriptor *config0;
-    int cfg, cfg0, detach_errno = 0;
-
-    if (ftdi == NULL)
-        ftdi_error_return(-8, "ftdi context invalid");
-
-    if (libusb_open(dev, &ftdi->usb_dev) < 0)
-        ftdi_error_return(-4, "libusb_open() failed");
-
+    int cfg, cfg0 = 0;
+    int detach_errno = 0;
+    
     if (libusb_get_device_descriptor(dev, &desc) < 0)
         ftdi_error_return(-9, "libusb_get_device_descriptor() failed");
-
     if (libusb_get_config_descriptor(dev, 0, &config0) < 0)
         ftdi_error_return(-10, "libusb_get_config_descriptor() failed");
     cfg0 = config0->bConfigurationValue;
     libusb_free_config_descriptor (config0);
-
     // Try to detach ftdi_sio kernel module.
     //
     // The return code is kept in a separate variable and only parsed
@@ -613,7 +587,7 @@ int ftdi_usb_open_dev(struct ftdi_context *ftdi, libusb_device *dev)
         if (libusb_detach_kernel_driver(ftdi->usb_dev, ftdi->interface) !=0)
             detach_errno = errno;
     }
-
+    
     if (libusb_get_configuration (ftdi->usb_dev, &cfg) < 0)
         ftdi_error_return(-12, "libusb_get_configuration () failed");
     // set configuration (needed especially for windows)
@@ -634,7 +608,7 @@ int ftdi_usb_open_dev(struct ftdi_context *ftdi, libusb_device *dev)
             }
         }
     }
-
+    
     if (libusb_claim_interface(ftdi->usb_dev, ftdi->interface) < 0)
     {
         ftdi_usb_close_internal (ftdi);
@@ -676,7 +650,6 @@ int ftdi_usb_open_dev(struct ftdi_context *ftdi, libusb_device *dev)
 
     // Determine maximum packet size
     ftdi->max_packet_size = _ftdi_determine_max_packet_size(ftdi, dev);
-
     if (ftdi_set_baudrate (ftdi, 9600) != 0)
     {
         ftdi_usb_close_internal (ftdi);
@@ -684,6 +657,58 @@ int ftdi_usb_open_dev(struct ftdi_context *ftdi, libusb_device *dev)
     }
 
     ftdi_error_return(0, "all fine");
+}
+
+/**
+    Opens a ftdi device given by an usb_device.
+
+    \param ftdi pointer to ftdi_context
+    \param dev libusb usb_dev to use
+
+    \retval  0: all fine
+    \retval -3: unable to config device
+    \retval -4: unable to open device
+    \retval -5: unable to claim device
+    \retval -6: reset failed
+    \retval -7: set baudrate failed
+    \retval -8: ftdi context invalid
+    \retval -9: libusb_get_device_descriptor() failed
+    \retval -10: libusb_get_config_descriptor() failed
+    \retval -11: libusb_detach_kernel_driver() failed
+    \retval -12: libusb_get_configuration() failed
+*/
+int ftdi_usb_open_dev(struct ftdi_context *ftdi, libusb_device *dev)
+{
+    if (ftdi == NULL)
+        ftdi_error_return(-8, "ftdi context invalid");
+    if (libusb_open(dev, &ftdi->usb_dev) < 0)
+        ftdi_error_return(-4, "libusb_open() failed");
+    return ftdi_usb_open_dev_internal(ftdi, dev);
+}
+
+/**
+  Opens the FTDI device based on the modified libusb open2 and device2 functions.
+  See https://github.com/kuldeepdhaka/libusb/tree/android-open2.
+
+  \param ftdi pointer to ftdi_context
+  \param dev_node device name from Android layer (UsbDevice::getDeviceName())
+  \param fd file descriptor from Android layer (UsbDeviceConnection::getFileDescriptor())
+
+  Uses the same return codes as ftdi_usb_open_dev.
+*/
+int ftdi_usb_open2(struct ftdi_context *ftdi, const char *dev_node, int fd)
+{
+    if (ftdi == NULL)
+        ftdi_error_return(-8, "ftdi context invalid");
+    libusb_device *dev = libusb_get_device2(ftdi->usb_ctx, dev_node);
+    if (dev == NULL)
+      ftdi_error_return(-4, "libusb_getdevice2() failed");
+    if (libusb_open2(dev, &ftdi->usb_dev, fd)) {
+        // FIXME: This may not be the right cleanup for libusb_get_device2
+        libusb_unref_device(dev);
+        ftdi_error_return(-4, "libusb_open2() failed");
+    }
+    return ftdi_usb_open_dev_internal(ftdi, dev);
 }
 
 /**
