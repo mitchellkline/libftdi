@@ -1897,7 +1897,7 @@ int ftdi_read_data(struct ftdi_context *ftdi, unsigned char *buf, int size)
         ftdi->readbuffer_offset = 0;
         /* returns how much received */
         ret = libusb_bulk_transfer (ftdi->usb_dev, ftdi->out_ep, ftdi->readbuffer, ftdi->readbuffer_chunksize, &actual_length, ftdi->usb_read_timeout);
-        if (ret < 0)
+        if (ret < 0 && ret != LIBUSB_ERROR_TIMEOUT)
             ftdi_error_return(ret, "usb bulk read failed");
 
         if (actual_length > 2)
