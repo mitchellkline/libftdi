@@ -2,6 +2,6 @@ A toolchain file is provided for cross-compiling this library to an armeabi-v7a 
 
 The Android build requires a modified version of libusb available here:
 
-https://github.com/kuldeepdhaka/libusb/tree/android-open2
+https://github.com/libusb/libusb/pull/242
 
 Build libusb-1.0 with an Android NDK toolchain and place the resulting .so and .h files in a convenient location.  See the toolchain file for more detailed instructions.

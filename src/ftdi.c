@@ -587,7 +587,6 @@ static int ftdi_usb_open_dev_internal(struct ftdi_context *ftdi, libusb_device *
         if (libusb_detach_kernel_driver(ftdi->usb_dev, ftdi->interface) !=0)
             detach_errno = errno;
     }
-    
     if (libusb_get_configuration (ftdi->usb_dev, &cfg) < 0)
         ftdi_error_return(-12, "libusb_get_configuration () failed");
     // set configuration (needed especially for windows)
@@ -688,7 +687,7 @@ int ftdi_usb_open_dev(struct ftdi_context *ftdi, libusb_device *dev)
 
 /**
   Opens the FTDI device based on the modified libusb open2 and device2 functions.
-  See https://github.com/kuldeepdhaka/libusb/tree/android-open2.
+  See https://github.com/libusb/libusb/pull/242.
 
   \param ftdi pointer to ftdi_context
   \param dev_node device name from Android layer (UsbDevice::getDeviceName())
@@ -701,14 +700,21 @@ int ftdi_usb_open2(struct ftdi_context *ftdi, const char *dev_node, int fd)
 #ifdef __ANDROID__
     if (ftdi == NULL)
         ftdi_error_return(-8, "ftdi context invalid");
-    libusb_device *dev = libusb_get_device2(ftdi->usb_ctx, dev_node);
-    if (dev == NULL)
-      ftdi_error_return(-4, "libusb_getdevice2() failed");
-    if (libusb_open2(dev, &ftdi->usb_dev, fd)) {
-        // FIXME: This may not be the right cleanup for libusb_get_device2
-        libusb_unref_device(dev);
-        ftdi_error_return(-4, "libusb_open2() failed");
+    libusb_device_handle *handle;
+    int wrap_error = libusb_wrap_fd(ftdi->usb_ctx, fd, &handle);
+    if (wrap_error == LIBUSB_ERROR_NO_MEM) {
+      ftdi_error_return(LIBUSB_ERROR_NO_MEM, "LIBUSB_ERROR_NO_MEM");
+    } else if (wrap_error == LIBUSB_ERROR_ACCESS) {
+      ftdi_error_return(LIBUSB_ERROR_ACCESS, "LIBUSB_ERROR_ACCESS");
+    } else if (wrap_error == LIBUSB_ERROR_NOT_SUPPORTED) {
+      ftdi_error_return(LIBUSB_ERROR_NOT_SUPPORTED, "LIBUSB_ERROR_NOT_SUPPORTED");
+    } else if (wrap_error) {
+      ftdi_error_return(-1, "unknown libusb_wrap_fd error");
     }
+    ftdi_set_usbdev(ftdi, handle);
+    libusb_device *dev = libusb_get_device(handle);
+    if (dev == NULL)
+      ftdi_error_return(-4, "libusb_get_device() failed");
     return ftdi_usb_open_dev_internal(ftdi, dev);
 #else
     ftdi_error_return(-4, "open2 not supported on this platform");
