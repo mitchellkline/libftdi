@@ -701,7 +701,7 @@ int ftdi_usb_open2(struct ftdi_context *ftdi, const char *dev_node, int fd)
     if (ftdi == NULL)
         ftdi_error_return(-8, "ftdi context invalid");
     libusb_device_handle *handle;
-    int wrap_error = libusb_wrap_fd(ftdi->usb_ctx, fd, &handle);
+    int wrap_error = libusb_wrap_sys_device(ftdi->usb_ctx, fd, &handle);
     if (wrap_error == LIBUSB_ERROR_NO_MEM) {
       ftdi_error_return(LIBUSB_ERROR_NO_MEM, "LIBUSB_ERROR_NO_MEM");
     } else if (wrap_error == LIBUSB_ERROR_ACCESS) {
@@ -709,7 +709,7 @@ int ftdi_usb_open2(struct ftdi_context *ftdi, const char *dev_node, int fd)
     } else if (wrap_error == LIBUSB_ERROR_NOT_SUPPORTED) {
       ftdi_error_return(LIBUSB_ERROR_NOT_SUPPORTED, "LIBUSB_ERROR_NOT_SUPPORTED");
     } else if (wrap_error) {
-      ftdi_error_return(-1, "unknown libusb_wrap_fd error");
+      ftdi_error_return(-1, "unknown libusb_wrap_sys_device error");
     }
     ftdi_set_usbdev(ftdi, handle);
     libusb_device *dev = libusb_get_device(handle);

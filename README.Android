@@ -1,7 +1,11 @@
-A toolchain file is provided for cross-compiling this library to an armeabi-v7a platform. See cmake/Toolchain-Android-armeabi-v7a.cmake.
+A toolchain file is provided for cross-compiling this library to an armeabi-v7a platform. See cmake/Toolchain-Android-armeabi-v7a.cmake. See cmake/Toolchain-Android-arm64-v8a.cmake for ARM 64 bit support.
 
 The Android build requires a modified version of libusb available here:
 
 https://github.com/libusb/libusb/pull/242
 
-Build libusb-1.0 with an Android NDK toolchain and place the resulting .so and .h files in a convenient location.  See the toolchain file for more detailed instructions.
+### Instructions
+* Build libusb-1.0 with an Android NDK toolchain and place the resulting .so and .h files in a convenient location. See one of the toolchain files for more detailed instructions. For example, have the lib and include folders in <path to libftdi repository>/libusb-android/arm64-v8a/usr/.
+* $ rm CMakeFiles CMakeCache.txt (to clean if you need to cmake again)
+* $ cmake . -DCMAKE_TOOLCHAIN_FILE=./cmake/Toolchain-Android-arm64-v8a.cmake
+* $ make
